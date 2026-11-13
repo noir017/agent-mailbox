@@ -56,12 +56,11 @@ class EndToEnd(unittest.TestCase):
 
         # replies: progress, then a final long enough to be split
         answer = "\n\n".join(f"第{i}段：" + "内容" * 900 for i in range(10))
-        for args, stdin in (
-            (["--type", "progress", "--text", "在看"], None),
-            (["--type", "final", "--text", "-"], answer),
-        ):
-            proc = self.inst.helper_run("reply", "--session", session, "--turn", "t1", *args, stdin=stdin)
+        # As the wake rules say: ~/mbx, no ids — the hook's fetch noted the open turn.
+        for args, stdin in ((["progress", "在看"], None), (["final"], answer)):
+            proc = self.inst.mbx_run(*args, stdin=stdin)
             self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual((json.loads(proc.stdout)["session"], json.loads(proc.stdout)["turn"]), (session, "t1"))
         _, got = client(RELAY, CLIENT, "GET", f"/client/replies?session={session}")
         types = [r["type"] for r in got["replies"]]
         self.assertEqual(types[0], "progress")

@@ -41,6 +41,9 @@ class Installed:
         os.makedirs(scripts)
         self.hook = os.path.join(scripts, "agent-mailbox.sh")
         shutil.copy2(HOOK, self.hook)
+        # SETUP.md links the short name into HOME.
+        self.mbx = os.path.join(self.home, "mbx")
+        os.symlink(os.path.join(dest, "bin", "mbx"), self.mbx)
 
     def env(self):
         env = {
@@ -54,11 +57,23 @@ class Installed:
         return env
 
     def helper_run(self, *args, stdin=None):
-        proc = subprocess.run(
-            ["python3", self.helper, *args],
-            env=self.env(), input=stdin, capture_output=True, text=True, timeout=60,
-        )
-        return proc
+        return self._run(["python3", self.helper, *args], stdin)
+
+    def mbx_run(self, *args, stdin=None):
+        """~/mbx, the way the hook's rules tell the agent to answer."""
+        return self._run([self.mbx, *args], stdin)
+
+    def _run(self, argv, stdin):
+        # No stdin given means an empty one, never the test runner's terminal.
+        extra = {"input": stdin} if stdin is not None else {"stdin": subprocess.DEVNULL}
+        return subprocess.run(argv, env=self.env(), capture_output=True, text=True, timeout=60, **extra)
+
+    def open_turns(self):
+        path = os.path.join(self.home, ".agent-mailbox", "turns.json")
+        if not os.path.exists(path):
+            return []
+        with open(path, encoding="utf-8") as fh:
+            return [(t["session"], t["turn"]) for t in json.load(fh)["open"]]
 
     def hook_run(self, due=True):
         """One Hatch tick: run the hook, return its decision. state.json persists between ticks.

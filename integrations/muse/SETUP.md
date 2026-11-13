@@ -18,8 +18,15 @@ and save it. Overwrite files from an earlier setup.
 | `connector/custom.agent-mailbox/CONNECTOR.md` | `~/workspace/custom-connectors/custom.agent-mailbox/CONNECTOR.md` | 644 |
 | `connector/custom.agent-mailbox/connector.yaml` | `~/workspace/custom-connectors/custom.agent-mailbox/connector.yaml` | 644 |
 | `connector/custom.agent-mailbox/bin/mailbox.py` | `~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py` | 755 |
+| `connector/custom.agent-mailbox/bin/mbx` | `~/workspace/custom-connectors/custom.agent-mailbox/bin/mbx` | 755 |
 | `hooks/agent-mailbox.sh` | `~/hooks/scripts/agent-mailbox.sh` | 755 |
 | `hooks/agent-mailbox.json` | where your runtime keeps hook definitions | 644 |
+
+Link the short name you will answer with:
+
+```text
+ln -sf ~/workspace/custom-connectors/custom.agent-mailbox/bin/mbx ~/mbx
+```
 
 Write `~/workspace/custom-connectors/custom.agent-mailbox/config.json`, with the relay URL the owner
 gave (scheme and host only, no path):
@@ -67,7 +74,8 @@ Still 401 with the path form: stop and tell the owner; the token may be wrong.
 
 Register `agent-mailbox.json` as a hook and enable it. It runs `~/hooks/scripts/agent-mailbox.sh`
 every 5 seconds; the script asks the relay only when due and wakes you only when a message is
-waiting. The rules for handling messages are in the hook's `prompt`.
+waiting. The rules for handling messages are in the hook's `prompt`: you answer with `~/mbx`, and
+what you write in the conversation itself is not delivered.
 
 Do not call `inbox` yourself: the hook owns the cursor, and `inbox` confirms and deletes messages.
 
@@ -75,4 +83,14 @@ Do not call `inbox` yourself: the hook owns the cursor, and `inbox` confirms and
 
 Tell the owner: the mailbox id from `ping`, which placement worked, and that the hook is on. Ask
 them to send a test message from the gateway. The first one may take up to 30 seconds to be picked
-up; answer it by the hook's rules (a `progress`, then a `final`).
+up; answer it by the hook's rules (`~/mbx final`).
+
+## Update
+
+When the owner asks you to update: do step 1 again (download every file in the table, overwrite,
+keep `config.json`, make the `~/mbx` link), then register `agent-mailbox.json` again so the hook
+takes its new `prompt`. The credential and the hook's state stay as they are. Run `ping`, and tell
+the owner it is done.
+
+An older version kept per-session files in `~/workspace/agent-mailbox/`; nothing uses them now, so
+that folder can be deleted.

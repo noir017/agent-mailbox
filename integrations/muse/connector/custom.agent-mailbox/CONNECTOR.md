@@ -1,7 +1,7 @@
 # Agent Mailbox
 
 - `custom.agent-mailbox` connects Muse to the owner's agent-mailbox relay at the host in `config.json`. The owner's gateway leaves messages there; Muse reads them and posts replies back.
-- Helper: `~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py`, commands `ping`, `inbox`, `reply`.
+- Helper: `~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py`, commands `ping`, `inbox`, `progress`, `final`, `message`, `reply`. `~/mbx` is the same script under a short name.
 - The hook `~/hooks/scripts/agent-mailbox.sh` runs every 5 seconds, polls `inbox` as often as the relay's `poll_after` says (5 s while in use, 30 s after an idle hour), and wakes an agent only when messages arrive. Do not run a second poller: `inbox --after` confirms and deletes messages.
 
 ## Connect
@@ -48,16 +48,20 @@ python3 ~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py inbox 
 ## Reply
 
 ```text
-python3 ~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py reply --session <session> --turn <turn> --type progress --text "<short status>"
-python3 ~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py reply --session <session> --turn <turn> --type final --text-file <file>
-python3 ~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py reply --session <session> --type message --text "<important result>"
+~/mbx progress "<short status>"
+~/mbx final <<'EOF'
+<the answer>
+EOF
+~/mbx message --session <session> "<important result>"
 ```
 
 - `progress`: what is being done now. Shown as a status line, not part of the answer.
 - `final`: the answer; ends the turn. Long text is split automatically (earlier parts go as `message` of the same turn, the last as `final`).
-- `message`: text outside a turn, for the same session. Without `--turn` it shows up as a separate update.
-- `--text -` reads stdin. Use `--text-file` for long or multi-line text.
-- Output: `{"ok": true, "seqs": [...]}`. A 404 means the session is unknown or expired.
+- `message`: text outside a turn, for that session. It shows up as a separate update.
+- The text is the argument, or stdin when there is none.
+- No ids needed: `inbox` notes each turn it hands over in `~/.agent-mailbox/turns.json` and a `final` closes it. With one turn open, `progress` and `final` go to it. With several, they refuse and list them: add the `--session` and `--turn` given. A turn idle for 15 minutes is forgotten.
+- Output: `{"ok": true, "seqs": [...], "session": "...", "turn": "..."}`. A 404 means the session is unknown or expired.
+- Long form, ids explicit: `mailbox.py reply --session <s> --turn <t> --type progress|final|message (--text T | --text-file F | --text -)`.
 
 ## Limits
 

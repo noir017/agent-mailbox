@@ -9,7 +9,7 @@ posts the replies back.
 
 | File | Goes to (in Muse's VM) |
 |---|---|
-| `connector/custom.agent-mailbox/` (`CONNECTOR.md`, `connector.yaml`, `bin/mailbox.py`) | `~/workspace/custom-connectors/custom.agent-mailbox/` |
+| `connector/custom.agent-mailbox/` (`CONNECTOR.md`, `connector.yaml`, `bin/mailbox.py`, `bin/mbx`) | `~/workspace/custom-connectors/custom.agent-mailbox/`, with `bin/mbx` linked as `~/mbx` |
 | `connector/custom.agent-mailbox/config.example.json` | the same folder, as `config.json`, with your host |
 | `hooks/agent-mailbox.sh` | `~/hooks/scripts/agent-mailbox.sh` |
 | `hooks/agent-mailbox.json` | where Muse keeps hook definitions (beside `~/hooks/scripts/`) |
@@ -33,6 +33,12 @@ Follow https://raw.githubusercontent.com/noir017/agent-mailbox/main/integrations
 
 Paste the agent token when the credential form opens, and approve outbound access to the relay
 host the first time it is asked. Once Muse reports back, send a test message from the gateway.
+
+To update an installed Muse to a newer version of this package, send it:
+
+```text
+Update agent-mailbox as the Update section of https://raw.githubusercontent.com/noir017/agent-mailbox/main/integrations/muse/SETUP.md says.
+```
 
 ### By hand
 
@@ -76,10 +82,17 @@ and the relay answers 401.
 
 ## What Muse is told
 
-`hooks/agent-mailbox.json` carries the wake rules. In short: one context per session; a progress
-line right away and then at most every 10 seconds on longer work (never 4 minutes without one);
-every turn ends with a `final`; a `cancel` stops the turn and gets a `final`; unprompted messages
-only for important results, with the original session.
+`hooks/agent-mailbox.json` carries the wake rules. In short: answer only with `~/mbx`, since what
+Muse writes in its own conversation is not delivered; every turn ends with one `~/mbx final`;
+`progress` only on work longer than about 15 seconds, then at least 10 seconds apart (never 4
+minutes without one); the conversation is the context, sessions kept apart; a `cancel` stops the
+turn and gets a `final`; unprompted messages only for important results, with the original session.
+
+A simple question is one tool call: `~/mbx final <<'EOF' … EOF`. `~/mbx` knows the open turn
+(`inbox` notes it, a `final` closes it), so no ids are copied. With turns of several sessions open
+at once it refuses and asks for the ids: this package handles one session at a time well, and
+several only with care.
+
 
 ## Tests
 

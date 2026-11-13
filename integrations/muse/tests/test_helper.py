@@ -116,6 +116,133 @@ class HelperRequests(unittest.TestCase):
         self.assertEqual(json.loads(proc.stderr), {"ok": False, "error": "HTTP 404: unknown session", "status": 404})
 
 
+class ShortCommands(unittest.TestCase):
+    """~/mbx progress / final / message: the open turn is remembered, so no ids to copy."""
+
+    def setUp(self):
+        self.replies = []
+        self.inbox = {"ok": True, "messages": [], "cursor": 0}
+        self.stub = Stub(self.respond)
+        self.inst = Installed(self.stub.url, "bearer")
+
+    def tearDown(self):
+        self.stub.close()
+        self.inst.cleanup()
+
+    def respond(self, req):
+        if "/inbox" in req["path"]:
+            return ok(self.inbox)
+        if req["path"].endswith("/reply"):
+            self.replies.append(json.loads(req["body"]))
+            return ok({"ok": True, "seq": len(self.replies)})
+        return 404, {}, b"{}"
+
+    def deliver(self, *msgs):
+        """The hook fetching these messages (it is the only caller of inbox)."""
+        self.inbox = {"ok": True, "cursor": 9, "messages": [
+            {"seq": i + 1, "session": s, "turn": t, "type": kind, "text": "x", "at": 1}
+            for i, (s, t, kind) in enumerate(msgs)
+        ]}
+        self.assertEqual(self.inst.helper_run("inbox").returncode, 0)
+
+    def mbx(self, *args, stdin=None, ok_=True):
+        proc = self.inst.mbx_run(*args, stdin=stdin)
+        if ok_:
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            return json.loads(proc.stdout)
+        self.assertEqual(proc.returncode, 1, proc.stdout)
+        return json.loads(proc.stderr)["error"]
+
+    def test_one_open_turn_needs_no_ids(self):
+        self.deliver(("s1", "t1", "message"))
+        self.assertEqual(self.inst.open_turns(), [("s1", "t1")])
+        self.mbx("progress", "looking")
+        out = self.mbx("final", stdin="the answer\nin two lines\n")
+        self.assertEqual(out, {"ok": True, "seqs": [2], "session": "s1", "turn": "t1"})
+        self.assertEqual(
+            [(r["session"], r["turn"], r["type"], r["text"]) for r in self.replies],
+            [("s1", "t1", "progress", "looking"), ("s1", "t1", "final", "the answer\nin two lines\n")],
+        )
+        # The final closed it: another one has nowhere to go.
+        self.assertEqual(self.inst.open_turns(), [])
+        self.assertIn("no open turn", self.mbx("final", "again", ok_=False))
+        self.assertEqual(len(self.replies), 2)
+
+    def test_several_open_turns_are_refused_not_guessed(self):
+        self.deliver(("s1", "t1", "message"), ("s2", "t7", "message"))
+        err = self.mbx("final", "which?", ok_=False)
+        self.assertIn("several turns are open", err)
+        self.assertIn("--session s2 --turn t7", err)
+        self.assertEqual(self.replies, [])
+        self.mbx("final", "for t7", "--turn", "t7")
+        self.mbx("final", "for t1")  # now the only one
+        self.assertEqual([(r["session"], r["turn"]) for r in self.replies], [("s2", "t7"), ("s1", "t1")])
+
+    def test_a_new_message_replaces_its_sessions_older_turn(self):
+        self.deliver(("s1", "t1", "message"))
+        self.deliver(("s1", "t2", "message"))
+        self.assertEqual(self.inst.open_turns(), [("s1", "t2")])
+
+    def test_a_cancel_keeps_the_turn_open_for_its_final(self):
+        self.deliver(("s1", "t1", "message"))
+        self.deliver(("s1", "t1", "cancel"))
+        self.assertEqual(self.inst.open_turns(), [("s1", "t1")])
+        self.mbx("final", "stopped")
+        self.assertEqual(self.replies[-1]["turn"], "t1")
+
+    def test_a_turn_left_open_too_long_is_dropped(self):
+        self.deliver(("s1", "t1", "message"))
+        path = os.path.join(self.inst.home, ".agent-mailbox", "turns.json")
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        data["open"][0]["at"] -= 16 * 60
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        self.assertIn("no open turn", self.mbx("progress", "late", ok_=False))
+
+    def test_progress_keeps_a_long_turn_open(self):
+        self.deliver(("s1", "t1", "message"))
+        path = os.path.join(self.inst.home, ".agent-mailbox", "turns.json")
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        data["open"][0]["at"] -= 14 * 60
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        self.mbx("progress", "still at it")
+        with open(path, encoding="utf-8") as fh:
+            self.assertGreater(json.load(fh)["open"][0]["at"], time.time() - 60)
+
+    def test_message_needs_a_session_and_has_no_turn(self):
+        self.assertIn("--session", self.mbx("message", "done", ok_=False))
+        self.mbx("message", "--session", "s1", "background job finished")
+        self.assertEqual(self.replies, [{"session": "s1", "type": "message", "text": "background job finished"}])
+
+    def test_empty_text_is_refused(self):
+        self.deliver(("s1", "t1", "message"))
+        self.assertIn("empty text", self.mbx("final", ok_=False))
+        self.assertEqual(self.inst.open_turns(), [("s1", "t1")])
+
+    def test_unwritable_bookkeeping_does_not_stop_delivery(self):
+        state = os.path.join(self.inst.home, ".agent-mailbox")
+        os.makedirs(state)
+        os.chmod(state, 0o500)
+        try:
+            self.inbox = {"ok": True, "cursor": 1, "messages": [{"seq": 1, "session": "s1", "turn": "t1", "type": "message", "text": "x", "at": 1}]}
+            self.assertEqual(self.inst.hook_run()["action"], "wake")
+            # Without the record, ~/mbx asks for ids; with them it still answers.
+            self.assertIn("open turns not available", self.mbx("final", "x", ok_=False))
+            self.mbx("final", "x", "--session", "s1", "--turn", "t1")
+            self.assertEqual(self.replies[-1]["turn"], "t1")
+        finally:
+            os.chmod(state, 0o700)
+
+    def test_the_long_form_final_closes_the_turn_too(self):
+        self.deliver(("s1", "t1", "message"))
+        proc = self.inst.helper_run("reply", "--session", "s1", "--turn", "t1", "--type", "final", "--text", "done")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(self.inst.open_turns(), [])
+
+
 class HookDecisions(unittest.TestCase):
     def setUp(self):
         self.answer = ok({"ok": True, "messages": [], "cursor": 0})

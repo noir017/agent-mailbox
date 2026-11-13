@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# mailbox.py under a short name, linked as ~/mbx: `~/mbx final <<'EOF' … EOF`, `~/mbx progress "…"`.
+exec python3 "$(dirname "$(readlink -f "$0")")/mailbox.py" "$@"

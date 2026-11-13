@@ -6,7 +6,7 @@
 
 | 文件 | 放到（Muse 的 VM 里） |
 |---|---|
-| `connector/custom.agent-mailbox/`（`CONNECTOR.md`、`connector.yaml`、`bin/mailbox.py`） | `~/workspace/custom-connectors/custom.agent-mailbox/` |
+| `connector/custom.agent-mailbox/`（`CONNECTOR.md`、`connector.yaml`、`bin/mailbox.py`、`bin/mbx`） | `~/workspace/custom-connectors/custom.agent-mailbox/`，`bin/mbx` 再链接成 `~/mbx` |
 | `connector/custom.agent-mailbox/config.example.json` | 同一目录，改名 `config.json`，填你的主机 |
 | `hooks/agent-mailbox.sh` | `~/hooks/scripts/agent-mailbox.sh` |
 | `hooks/agent-mailbox.json` | Muse 存放 hook 定义的地方（`~/hooks/scripts/` 旁边） |
@@ -23,6 +23,12 @@ VM 里要有 `python3` 和 `jq`，和它改编自的 Telegram 桥一样。
 
 ```text
 按 https://raw.githubusercontent.com/noir017/agent-mailbox/main/integrations/muse/SETUP.md 把你自己接入我的 agent-mailbox 中继。中继地址：https://mailbox.example.com 。token 我会在凭据输入框里填，不要在聊天里问我要。
+```
+
+已经装好的 Muse 要升级到新版安装包时，发这句：
+
+```text
+按 https://raw.githubusercontent.com/noir017/agent-mailbox/main/integrations/muse/SETUP.md 的 Update 一节更新 agent-mailbox。
 ```
 
 凭据表单弹出时贴 agent token；第一次出网时批准中继主机。它汇报完，从网关发一条测试消息。
@@ -52,7 +58,9 @@ VM 里要有 `python3` 和 `jq`，和它改编自的 Telegram 桥一样。
 
 ## 给 Muse 的规则
 
-唤醒规则在 `hooks/agent-mailbox.json` 里。概括：每个 session 各自维护上下文；先马上发一条进度，长任务每步发一条、两条至少隔 10 秒（不能 4 分钟一条都没有）；每一轮都以 `final` 结束；收到 `cancel` 就停手并回 `final`；只有重要结果才主动发消息，且带原来的 session。
+唤醒规则在 `hooks/agent-mailbox.json` 里。概括：只用 `~/mbx` 回复，Muse 在自己对话里写的字不会送达；每一轮以一次 `~/mbx final` 结束；只有超过约 15 秒的活才发 `progress`，两条至少隔 10 秒（不能 4 分钟一条都没有）；对话本身就是上下文，不同 session 不串；收到 `cancel` 就停手并回 `final`；只有重要结果才主动发消息，且带原来的 session。
+
+简单的问题只要一次工具调用：`~/mbx final <<'EOF' … EOF`。`~/mbx` 知道当前在进行的那一轮（`inbox` 取到时记下，`final` 时划掉），不用抄 id。同时有几个 session 的轮次在进行时，它拒绝猜、要求写明 id：这个安装包一次处理一个 session 最顺，多个只能将就。
 
 ## 测试
 
