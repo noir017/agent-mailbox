@@ -21,6 +21,21 @@ The VM needs `python3` and `jq`, as the Telegram bridge this is adapted from doe
 You need a deployed relay and a mailbox for this Muse account (`npm run new-mailbox -- <id>` in the
 relay repository). Keep the **agent token** at hand; it never goes into the chat.
 
+### Let Muse install itself
+
+[`SETUP.md`](SETUP.md) is written for Muse to follow: download the files, register the credential,
+check with `ping`, switch placement if needed, register the hook, and report back. Send Muse this,
+with your relay's URL:
+
+```text
+Follow https://raw.githubusercontent.com/noir017/agent-mailbox/main/integrations/muse/SETUP.md to connect yourself to my agent-mailbox relay at https://mailbox.example.com. I will enter the token in the credential form; do not ask for it in chat.
+```
+
+Paste the agent token when the credential form opens, and approve outbound access to the relay
+host the first time it is asked. Once Muse reports back, send a test message from the gateway.
+
+### By hand
+
 1. **Files.** Give Muse the files above — upload them, or ask it to fetch them from this
    repository — and have it place them as listed. In `config.json` set `base_url` to your relay
    (`https://mailbox.example.com`) and `placement` to `"bearer"`.

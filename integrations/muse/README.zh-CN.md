@@ -17,6 +17,18 @@ VM 里要有 `python3` 和 `jq`，和它改编自的 Telegram 桥一样。
 
 先要有部署好的中继，并给这个 Muse 账号建好信箱（中继仓库里 `npm run new-mailbox -- <id>`）。手边留着 **agent token**，它不进聊天。
 
+### 让 Muse 自己装
+
+[`SETUP.md`](SETUP.md) 是写给 Muse 的分步指令：下载文件、登记凭据、`ping` 自检、出错换放法、注册 hook，最后向你汇报。把下面这段发给 Muse，换成你的中继地址：
+
+```text
+按 https://raw.githubusercontent.com/noir017/agent-mailbox/main/integrations/muse/SETUP.md 把你自己接入我的 agent-mailbox 中继。中继地址：https://mailbox.example.com 。token 我会在凭据输入框里填，不要在聊天里问我要。
+```
+
+凭据表单弹出时贴 agent token；第一次出网时批准中继主机。它汇报完，从网关发一条测试消息。
+
+### 手动装
+
 1. **文件**：把上面的文件交给 Muse（上传，或让它从本仓库下载），让它按表里的位置放好。`config.json` 里 `base_url` 填你的中继（`https://mailbox.example.com`），`placement` 填 `"bearer"`。
 2. **凭据**：让 Muse 新建自定义 connector `custom.agent-mailbox`：服务商 `agent-mailbox`，认证 `api_key`，API 主机填中继的主机名，key 用 `Authorization: Bearer` 头发送。Muse 自己的凭据流程会弹出安全输入框要 key：agent token 贴在那里，不要贴进对话。Muse 把它存进 Secure Credentials Store，代码里只看得到 `hsurr:` 替身。
 3. **出网**：第一次请求新主机时可能要你批准出网访问，只批准这一个主机。

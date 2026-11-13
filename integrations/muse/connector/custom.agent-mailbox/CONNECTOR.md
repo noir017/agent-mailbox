@@ -42,7 +42,7 @@ It prints `{"ok": true, "mailbox": "<id>", "role": "agent", "pending": <n>}`.
 python3 ~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py inbox --after <cursor>
 ```
 
-- Output: `{"ok": true, "messages": [{"seq", "session", "turn", "type", "text", "at"}], "cursor": <n>}`. `type` is `message` or `cancel`.
+- Output: `{"ok": true, "messages": [{"seq", "session", "turn", "type", "text", "at"}], "cursor": <n>, "poll_after": <seconds>}`. `type` is `message` or `cancel`; `poll_after` is when the hook polls next.
 - `--after` confirms everything up to that cursor; the relay deletes it. The hook owns the cursor; normally only the hook calls `inbox`.
 
 ## Reply
