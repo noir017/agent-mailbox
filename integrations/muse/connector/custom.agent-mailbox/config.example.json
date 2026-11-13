@@ -1,0 +1,4 @@
+{
+  "base_url": "https://mailbox.example.com",
+  "placement": "bearer"
+}

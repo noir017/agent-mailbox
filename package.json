@@ -1,0 +1,27 @@
+{
+  "name": "agent-mailbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A mailbox relay on Cloudflare Workers for cloud agents that can only poll HTTP",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "new-mailbox": "node scripts/new-mailbox.mjs",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test",
+    "test": "vitest run",
+    "test:e2e": "node test/e2e/run.mjs",
+    "test:muse": "python3 -m unittest discover -s integrations/muse/tests -p 'test_*.py'"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261113.1",
+    "@types/node": "^24.19.2",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.161.0"
+  }
+}

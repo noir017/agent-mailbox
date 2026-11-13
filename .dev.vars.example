@@ -1,0 +1,3 @@
+# Copy to .dev.vars for `npm run dev`. Generate entries with `npm run new-mailbox -- <id>`.
+# Only hashes go here; the tokens themselves are printed once and kept by whoever uses them.
+MAILBOXES={"demo":{"agent":"<sha256 of the agent token>","client":"<sha256 of the client token>"}}

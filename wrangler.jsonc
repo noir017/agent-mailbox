@@ -1,0 +1,24 @@
+// Deploy with `npx wrangler deploy` after setting the MAILBOXES secret (see README).
+// Nothing account-specific lives here: the token hashes are a secret, the hostname is yours to add.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agent-mailbox",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-11-01",
+  "durable_objects": {
+    "bindings": [{ "name": "MAILBOX", "class_name": "Mailbox" }]
+  },
+  // SQLite-backed objects: the only kind the Workers Free plan offers.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Mailbox"] }],
+  // Off on purpose: invocation logs record the request URL, and an agent may carry its token in
+  // the path. The Worker itself never logs a URL, a header or a body.
+  "observability": { "enabled": false },
+  "vars": {
+    "TTL_HOURS": "168",
+    "MAX_BODY_BYTES": "131072",
+    "MAX_TEXT_CHARS": "16000",
+    "MAX_PENDING": "200"
+  }
+  // A custom domain (optional; the workers.dev hostname works too):
+  // "routes": [{ "pattern": "mailbox.example.com", "custom_domain": true }]
+}

@@ -1,0 +1,7 @@
+# Save beside CONNECTOR.md as ~/workspace/custom-connectors/custom.agent-mailbox/connector.yaml.
+# id equals the folder name and the slug given to credentials.request_api_access.
+id: "custom.agent-mailbox"
+title: "Agent Mailbox"
+description: "Read messages from the owner's gateway and send replies back through the agent-mailbox relay."
+include_in_prompt: true
+require_auth: true
