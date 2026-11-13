@@ -114,6 +114,10 @@ curl https://agent-mailbox.<your-subdomain>.workers.dev/health
 - **Custom domain** (optional): uncomment `routes` in `wrangler.jsonc` with your hostname, e.g.
   `{"pattern": "mailbox.example.com", "custom_domain": true}`, and deploy again; the zone must be
   on the same Cloudflare account. The agent registers that hostname as its API host.
+- **User-Agent.** A zone with Cloudflare's Browser Integrity Check on answers a request without a
+  browser-like or custom `User-Agent` — Python's `urllib` default among them — with `403` (error
+  1010) before the Worker sees it. The Muse helper and fleetherd send their own; a client you
+  write should too.
 - **Logs.** `observability` is off in `wrangler.jsonc`, and the Worker never logs a URL, a header
   or a body. An agent that puts its token in the path does put it in the URL, so anything that
   records URLs will see it: `wrangler tail`, Workers Logs if you turn them on, and `wrangler dev`'s

@@ -102,6 +102,8 @@ def build_request(op, query=None, payload=None):
     if payload is not None:
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         headers["Content-Type"] = "application/json"
+    # Not urllib's default: Cloudflare's Browser Integrity Check answers Python-urllib/x.y with 403
+    # (error 1010) on a relay whose zone has it on (measured 2026-11-13).
     headers["User-Agent"] = "agent-mailbox-helper/1"
     return urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
 

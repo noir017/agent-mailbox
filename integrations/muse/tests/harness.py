@@ -167,6 +167,12 @@ class SwapProxy(Stub):
                 headers["authorization"] = auth.replace(SURROGATE, token)
             if req["body"]:
                 headers["content-type"] = "application/json"
+            # Pass the helper's User-Agent on, as Muse's egress does: without one urllib sends
+            # Python-urllib/x.y, which Cloudflare's Browser Integrity Check answers with 403
+            # (error 1010) on a relay behind a zone that has it on — measured 2026-11-13.
+            ua = req["headers"].get("User-Agent") or req["headers"].get("user-agent")
+            if ua:
+                headers["user-agent"] = ua
             fwd = urllib.request.Request(upstream + path, data=req["body"] or None, headers=headers, method=req["method"])
             try:
                 with urllib.request.urlopen(fwd, timeout=30) as resp:
@@ -180,7 +186,8 @@ class SwapProxy(Stub):
 def client(base, token, method, path, body=None):
     """The gateway's side, for driving a test: a plain call with the client token."""
     data = json.dumps(body).encode() if body is not None else None
-    headers = {"authorization": f"Bearer {token}"}
+    # A User-Agent of its own, for the same Browser Integrity Check as the proxy above.
+    headers = {"authorization": f"Bearer {token}", "user-agent": "agent-mailbox-test/1"}
     if data:
         headers["content-type"] = "application/json"
     req = urllib.request.Request(base + path, data=data, headers=headers, method=method)

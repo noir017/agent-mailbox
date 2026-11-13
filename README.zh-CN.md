@@ -88,6 +88,7 @@ curl https://agent-mailbox.<你的子域>.workers.dev/health
 
 - agent token 交给 agent 自己的凭据库，client token 交给网关的环境变量；两者都不进仓库、聊天和日志。`MAILBOXES` 里只有哈希；加信箱、吊销 token 就是再 `secret put` 一次。
 - **自定义域名**（可选）：在 `wrangler.jsonc` 里取消 `routes` 的注释、填上你的主机名，比如 `{"pattern": "mailbox.example.com", "custom_domain": true}`，再部署一次；这个 zone 要在同一个 Cloudflare 账号下。agent 那边登记的 API 主机就是它。
+- **User-Agent**：zone 开着 Cloudflare 的 Browser Integrity Check 时，没带像样 `User-Agent` 的请求（比如 Python `urllib` 的默认值）在到达 Worker 之前就被回 `403`（error 1010）。Muse 的 helper 和 fleetherd 都带了自己的；自己写客户端也要带。
 - **日志**：`wrangler.jsonc` 里关了 `observability`，Worker 自己从不记 URL、请求头和请求体。但 token 放在路径里时它就在 URL 里，任何记 URL 的东西都会看到：`wrangler tail`、开了的 Workers Logs、`wrangler dev` 自己的请求日志。agent 能用 Bearer 就用 Bearer。
 - 本地：把 `.dev.vars.example` 复制成 `.dev.vars`，填 `MAILBOXES`，`npm run dev`。
 
