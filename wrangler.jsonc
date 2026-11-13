@@ -17,7 +17,11 @@
     "TTL_HOURS": "168",
     "MAX_BODY_BYTES": "131072",
     "MAX_TEXT_CHARS": "16000",
-    "MAX_PENDING": "200"
+    "MAX_PENDING": "200",
+    // The agent's next poll: every 5 s while a message went either way in the last hour, else 30 s.
+    "POLL_ACTIVE_SECONDS": "5",
+    "POLL_IDLE_SECONDS": "30",
+    "ACTIVE_WINDOW_MINUTES": "60"
   }
   // A custom domain (optional; the workers.dev hostname works too):
   // "routes": [{ "pattern": "mailbox.example.com", "custom_domain": true }]

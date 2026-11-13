@@ -17,6 +17,12 @@
  * Cost on the Workers Free plan is rows read/written per day (see README). An empty poll reads a
  * row or two and writes nothing; the agent's last poll time lives in memory and reaches storage
  * at most once a minute (`POLL_PERSIST_MS`).
+ *
+ * The agent is also told when to poll next (`poll_after`): often while the mailbox is in use, rarely
+ * when it is not. Requests per day are what the free plan runs out of, and an agent polls around
+ * the clock whether anyone writes to it or not. "In use" is a message either way — delivered by
+ * the client or replied by the agent — within `activeWindowMs`; that time is written with the
+ * message itself, so it survives the object being evicted between polls.
  */
 import type { Limits } from './config.js';
 
@@ -122,7 +128,7 @@ export class MailboxStore {
     const last = rows.at(-1)?.seq;
     if (last !== undefined && last > this.meta('fetched_upto')) this.setMeta('fetched_upto', last);
     this.notePoll(now);
-    return ok({ messages: rows, cursor: last ?? after ?? this.meta('acked_upto') });
+    return ok({ messages: rows, cursor: last ?? after ?? this.meta('acked_upto'), poll_after: this.pollAfter(now) });
   }
 
   /** The agent's answer, progress note or unprompted message for a session. */
@@ -158,6 +164,7 @@ export class MailboxStore {
       now,
     );
     this.touchSession(session, now);
+    this.setMeta('last_activity_at', now);
     return ok({ seq });
   }
 
@@ -204,6 +211,7 @@ export class MailboxStore {
       now,
     );
     this.touchSession(session, now);
+    this.setMeta('last_activity_at', now);
     return ok({ seq, turn, agent: this.agentStatus() });
   }
 
@@ -283,6 +291,13 @@ export class MailboxStore {
       fetched_upto: this.meta('fetched_upto'),
       acked_upto: this.meta('acked_upto'),
     };
+  }
+
+  /** Seconds until the agent's next poll: short while a message went either way within the window. */
+  private pollAfter(now: number): number {
+    const last = this.meta('last_activity_at');
+    const inUse = last > 0 && now - last < this.limits.activeWindowMs;
+    return inUse ? this.limits.pollActiveSecs : this.limits.pollIdleSecs;
   }
 
   private notePoll(now: number): void {

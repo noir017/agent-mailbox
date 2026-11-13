@@ -24,6 +24,12 @@ export interface Limits {
   maxTextChars: number;
   /** Most messages (or replies) a mailbox holds at once per direction. */
   maxPending: number;
+  /** Seconds the agent is told to wait before its next poll while the mailbox is in use. */
+  pollActiveSecs: number;
+  /** ...and while it is not. */
+  pollIdleSecs: number;
+  /** How long after the last message, either way, the mailbox counts as in use. */
+  activeWindowMs: number;
 }
 
 export interface Env {
@@ -32,6 +38,9 @@ export interface Env {
   MAX_BODY_BYTES?: string;
   MAX_TEXT_CHARS?: string;
   MAX_PENDING?: string;
+  POLL_ACTIVE_SECONDS?: string;
+  POLL_IDLE_SECONDS?: string;
+  ACTIVE_WINDOW_MINUTES?: string;
 }
 
 export const DEFAULT_LIMITS: Limits = {
@@ -39,6 +48,9 @@ export const DEFAULT_LIMITS: Limits = {
   maxBodyBytes: 128 * 1024,
   maxTextChars: 16_000,
   maxPending: 200,
+  pollActiveSecs: 5,
+  pollIdleSecs: 30,
+  activeWindowMs: 60 * 60_000,
 };
 
 const MAILBOX_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
@@ -89,11 +101,22 @@ function positive(raw: string | undefined, fallback: number, name: string): numb
 }
 
 export function parseLimits(env: Env): Limits {
+  const pollActiveSecs = Math.ceil(positive(env.POLL_ACTIVE_SECONDS, DEFAULT_LIMITS.pollActiveSecs, 'POLL_ACTIVE_SECONDS'));
+  const pollIdleSecs = Math.ceil(positive(env.POLL_IDLE_SECONDS, DEFAULT_LIMITS.pollIdleSecs, 'POLL_IDLE_SECONDS'));
+  // An idle interval shorter than the active one would poll hardest when nothing happens.
+  if (pollIdleSecs < pollActiveSecs) {
+    throw new Error(`POLL_IDLE_SECONDS (${pollIdleSecs}) is shorter than POLL_ACTIVE_SECONDS (${pollActiveSecs})`);
+  }
   return {
     ttlMs: Math.round(positive(env.TTL_HOURS, DEFAULT_LIMITS.ttlMs / 3_600_000, 'TTL_HOURS') * 3_600_000),
     maxBodyBytes: Math.floor(positive(env.MAX_BODY_BYTES, DEFAULT_LIMITS.maxBodyBytes, 'MAX_BODY_BYTES')),
     maxTextChars: Math.floor(positive(env.MAX_TEXT_CHARS, DEFAULT_LIMITS.maxTextChars, 'MAX_TEXT_CHARS')),
     maxPending: Math.floor(positive(env.MAX_PENDING, DEFAULT_LIMITS.maxPending, 'MAX_PENDING')),
+    pollActiveSecs,
+    pollIdleSecs,
+    activeWindowMs: Math.round(
+      positive(env.ACTIVE_WINDOW_MINUTES, DEFAULT_LIMITS.activeWindowMs / 60_000, 'ACTIVE_WINDOW_MINUTES') * 60_000,
+    ),
   };
 }
 

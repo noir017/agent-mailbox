@@ -60,11 +60,21 @@ class Installed:
         )
         return proc
 
-    def hook_run(self):
-        """One Hatch tick: run the hook, return its decision. state.json persists between ticks."""
+    def hook_run(self, due=True):
+        """One Hatch tick: run the hook, return its decision. state.json persists between ticks.
+
+        due=True stands for "the relay's poll_after has passed": the hook's next_at is dropped first,
+        so tests can tick back to back. due=False runs the tick as it falls, next_at and all.
+        """
         result = os.path.join(self.hatch, "result.json")
         if os.path.exists(result):
             os.remove(result)
+        if due:
+            state = self.state()
+            if "next_at" in state:
+                del state["next_at"]
+                with open(os.path.join(self.hatch, "state.json"), "w", encoding="utf-8") as fh:
+                    json.dump(state, fh)
         proc = subprocess.run(["bash", self.hook], env=self.env(), capture_output=True, text=True, timeout=60)
         if proc.returncode != 0:
             raise AssertionError(f"hook exited {proc.returncode}: {proc.stderr}")

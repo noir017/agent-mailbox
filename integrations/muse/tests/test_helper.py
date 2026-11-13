@@ -4,6 +4,7 @@ Runs anywhere with python3, bash and jq; no relay, no network. The end-to-end ru
 relay is test_e2e.py.
 """
 import json
+import time
 import os
 import sys
 import unittest
@@ -125,10 +126,39 @@ class HookDecisions(unittest.TestCase):
         self.stub.close()
         self.inst.cleanup()
 
+    def wait_left(self):
+        """Seconds until the hook's next poll, as it stored it."""
+        return self.inst.state()["next_at"] - time.time()
+
     def test_empty_inbox_stays_silent(self):
         self.assertEqual(self.inst.hook_run(), {"action": "silent", "reason": "no new mailbox messages"})
-        self.assertEqual(self.inst.state(), {})
+        self.assertEqual(set(self.inst.state()), {"next_at"})
         self.assertEqual(self.stub.requests[-1]["path"], "/agent/inbox")
+
+    def test_a_tick_before_poll_after_sends_nothing(self):
+        self.answer = ok({"ok": True, "messages": [], "cursor": 0, "poll_after": 30})
+        self.inst.hook_run()
+        self.assertTrue(27 <= self.wait_left() <= 29, self.wait_left())
+        sent = len(self.stub.requests)
+        self.assertEqual(self.inst.hook_run(due=False), {"action": "silent", "reason": "not due"})
+        self.assertEqual(len(self.stub.requests), sent)
+        # Once due, it polls again and takes the relay's new interval.
+        self.answer = ok({"ok": True, "messages": [], "cursor": 0, "poll_after": 5})
+        self.inst.hook_run()
+        self.assertEqual(len(self.stub.requests), sent + 1)
+        self.assertTrue(2 <= self.wait_left() <= 4, self.wait_left())
+        # One second off the interval, so the 5 s hook tick after this one is due.
+        self.inst.hook_run()
+        self.assertEqual(len(self.stub.requests), sent + 2)
+
+    def test_poll_after_is_bounded(self):
+        for given, low, high in ((None, 2, 4), ("soon", 2, 4), (0, -2, 0), (100000, 297, 299)):
+            body = {"ok": True, "messages": [], "cursor": 0}
+            if given is not None:
+                body["poll_after"] = given
+            self.answer = ok(body)
+            self.inst.hook_run()
+            self.assertTrue(low <= self.wait_left() <= high, (given, self.wait_left()))
 
     def test_messages_wake_and_the_cursor_is_kept(self):
         msgs = [
@@ -142,7 +172,7 @@ class HookDecisions(unittest.TestCase):
             result["payload"],
             {"messages": [{k: m[k] for k in ("seq", "session", "turn", "type", "text")} for m in msgs]},
         )
-        self.assertEqual(self.inst.state(), {"cursor": 5})
+        self.assertEqual(self.inst.state()["cursor"], 5)
         self.assertEqual(self.inst.logs()[-1], {"event": "messages_received", "data": {"count": 2}})
         # The next tick confirms them.
         self.answer = ok({"ok": True, "messages": [], "cursor": 5})
@@ -150,11 +180,13 @@ class HookDecisions(unittest.TestCase):
         self.assertEqual(self.stub.requests[-1]["path"], "/agent/inbox?after=5")
 
     def test_a_failed_fetch_is_silent_and_keeps_the_cursor(self):
-        self.answer = ok({"ok": True, "messages": [{"seq": 1, "session": "s", "turn": "1", "type": "message", "text": "x"}], "cursor": 1})
+        # poll_after 0: due again at once, so the failing tick below really polls.
+        self.answer = ok({"ok": True, "messages": [{"seq": 1, "session": "s", "turn": "1", "type": "message", "text": "x"}], "cursor": 1, "poll_after": 0})
         self.inst.hook_run()
         self.answer = (500, {"content-type": "application/json"}, b'{"ok":false}')
-        self.assertEqual(self.inst.hook_run(), {"action": "silent", "reason": "mailbox fetch failed"})
-        self.assertEqual(self.inst.state(), {"cursor": 1})
+        before = self.inst.state()
+        self.assertEqual(self.inst.hook_run(due=False), {"action": "silent", "reason": "mailbox fetch failed"})
+        self.assertEqual(self.inst.state(), before)
         self.assertEqual(self.inst.logs()[-1], {"event": "fetch_failed", "data": {}})
 
 

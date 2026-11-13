@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-让 Meta 的 Muse 通过 [agent-mailbox](../../README.zh-CN.md) 中继接收网关发来的消息并回复。外面调不到 Muse；它云端 VM 里的 hook 每 5 秒轮询一次中继，有消息就唤醒它，回复走自定义 connector 发回中继。
+让 Meta 的 Muse 通过 [agent-mailbox](../../README.zh-CN.md) 中继接收网关发来的消息并回复。外面调不到 Muse；它云端 VM 里的 hook 轮询中继（有消息往来时每 5 秒一次，闲了一小时后每 30 秒一次），有消息就唤醒它，回复走自定义 connector 发回中继。
 
 | 文件 | 放到（Muse 的 VM 里） |
 |---|---|
@@ -21,7 +21,7 @@ VM 里要有 `python3` 和 `jq`，和它改编自的 Telegram 桥一样。
 2. **凭据**：让 Muse 新建自定义 connector `custom.agent-mailbox`：服务商 `agent-mailbox`，认证 `api_key`，API 主机填中继的主机名，key 用 `Authorization: Bearer` 头发送。Muse 自己的凭据流程会弹出安全输入框要 key：agent token 贴在那里，不要贴进对话。Muse 把它存进 Secure Credentials Store，代码里只看得到 `hsurr:` 替身。
 3. **出网**：第一次请求新主机时可能要你批准出网访问，只批准这一个主机。
 4. **验证**：让 Muse 运行 `python3 ~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py ping`，应输出 `{"ok": true, "mailbox": "<id>", "role": "agent", …}`。
-5. **hook**：让 Muse 按 `agent-mailbox.json` 注册 hook（间隔 5 秒）。从网关发一条消息：几秒内 Muse 应先回一条进度，再回答案。
+5. **hook**：让 Muse 按 `agent-mailbox.json` 注册 hook（间隔 5 秒；中继说还没到时间的那几次，脚本自己跳过）。从网关发一条消息：Muse 应先回一条进度，再回答案。刚装好时信箱还算闲着，第一条最多等 30 秒才被取走，之后一小时内是几秒。
 
 ### token 先试哪种放法
 

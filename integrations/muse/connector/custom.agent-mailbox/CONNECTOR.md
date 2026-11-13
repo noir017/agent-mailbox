@@ -2,7 +2,7 @@
 
 - `custom.agent-mailbox` connects Muse to the owner's agent-mailbox relay at the host in `config.json`. The owner's gateway leaves messages there; Muse reads them and posts replies back.
 - Helper: `~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py`, commands `ping`, `inbox`, `reply`.
-- The hook `~/hooks/scripts/agent-mailbox.sh` polls `inbox` every 5 seconds and wakes an agent only when messages arrive. Do not run a second poller: `inbox --after` confirms and deletes messages.
+- The hook `~/hooks/scripts/agent-mailbox.sh` runs every 5 seconds, polls `inbox` as often as the relay's `poll_after` says (5 s while in use, 30 s after an idle hour), and wakes an agent only when messages arrive. Do not run a second poller: `inbox --after` confirms and deletes messages.
 
 ## Connect
 

@@ -107,9 +107,12 @@ try {
   // A turn, through the Durable Object.
   const sent = await call('POST', '/client/send', { bearer: T.alphaClient, body: { session: 'chat', turn: 't1', text: 'hello' } });
   check('send', sent.status === 200 && sent.body.seq === 1, sent);
-  check('beta sees none of it', (await call('GET', '/agent/inbox', { bearer: T.betaAgent })).body.messages.length === 0);
+  const betaInbox = await call('GET', '/agent/inbox', { bearer: T.betaAgent });
+  check('beta sees none of it', betaInbox.body.messages.length === 0);
+  check('poll_after: an unused mailbox is told 30 s', betaInbox.body.poll_after === 30, betaInbox.body);
   const inbox = await call('GET', `/agent${T.alphaAgent}/inbox`);
   check('inbox', inbox.body.messages[0]?.text === 'hello' && inbox.body.cursor === 1, inbox);
+  check('poll_after: a mailbox in use is told 5 s', inbox.body.poll_after === 5, inbox.body);
   const rep = await call('POST', `/agent${T.alphaAgent}/reply`, { body: { session: 'chat', turn: 't1', type: 'final', text: 'hi back' } });
   check('reply', rep.status === 200, rep);
   const got = await call('GET', '/client/replies?session=chat', { bearer: T.alphaClient });
@@ -125,6 +128,7 @@ try {
   await waitReady();
   const after = await call('GET', '/agent/inbox?after=1', { bearer: T.alphaAgent });
   check('messages survive a restart', after.body.messages.map((m) => m.text).join() === 'survives', after);
+  check('poll_after: still in use after a restart', after.body.poll_after === 5, after.body);
   const st = await call('GET', '/client/status', { bearer: T.alphaClient });
   check('poll time survives a restart', st.body.agent.last_poll_at > 0, st);
   check('sequence continues', (await call('POST', '/client/send', { bearer: T.alphaClient, body: { session: 'chat', text: 'n' } })).body.seq === 3);

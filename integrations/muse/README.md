@@ -4,7 +4,7 @@
 
 Lets Meta's Muse take messages from your gateway and answer them through an
 [agent-mailbox](../../README.md) relay. Muse cannot be called from outside; a hook in its cloud VM
-polls the relay every 5 seconds and wakes it when a message is waiting, and a custom connector
+polls the relay — every 5 seconds while messages are going back and forth, every 30 after an idle hour — and wakes it when a message is waiting, and a custom connector
 posts the replies back.
 
 | File | Goes to (in Muse's VM) |
@@ -33,8 +33,10 @@ relay repository). Keep the **agent token** at hand; it never goes into the chat
    Approve it for that host only.
 4. **Check.** Ask Muse to run `python3 ~/workspace/custom-connectors/custom.agent-mailbox/bin/mailbox.py ping`.
    It should print `{"ok": true, "mailbox": "<id>", "role": "agent", …}`.
-5. **Hook.** Ask Muse to register the hook from `agent-mailbox.json` (5-second interval). Send a
-   message from the gateway: within a few seconds Muse should send a progress line, then the answer.
+5. **Hook.** Ask Muse to register the hook from `agent-mailbox.json` (5-second interval; the
+   script itself skips the ticks the relay says are not due). Send a message from the gateway: Muse
+   should send a progress line, then the answer. A fresh mailbox counts as idle, so the first
+   message may wait up to 30 seconds to be picked up; for the next hour it is a few seconds.
 
 ### Which token placement first
 

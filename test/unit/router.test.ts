@@ -175,6 +175,16 @@ describe('config', () => {
     expect(() => parseLimits({ MAX_BODY_BYTES: '0' })).toThrow(/positive/);
   });
 
+  it('reads the poll intervals and refuses an idle one shorter than the active one', () => {
+    expect(parseLimits({ POLL_ACTIVE_SECONDS: '10', POLL_IDLE_SECONDS: '60', ACTIVE_WINDOW_MINUTES: '15' })).toMatchObject({
+      pollActiveSecs: 10,
+      pollIdleSecs: 60,
+      activeWindowMs: 900_000,
+    });
+    expect(() => parseLimits({ POLL_ACTIVE_SECONDS: '30', POLL_IDLE_SECONDS: '5' })).toThrow(/shorter/);
+    expect(() => parseLimits({ POLL_IDLE_SECONDS: '0' })).toThrow(/positive/);
+  });
+
   it('authenticates only well-formed tokens of the right role', async () => {
     const boxes: MailboxEntry[] = parseMailboxes(MAILBOXES);
     expect((await authenticate(boxes, 'agent', TOKENS.betaAgent))?.id).toBe('beta');

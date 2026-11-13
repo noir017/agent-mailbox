@@ -212,3 +212,50 @@ describe('expiry', () => {
     expect(store.reply({ session: 's', turn: 't', type: 'final', text: 'late' }).status).toBe(404);
   });
 });
+
+describe('poll_after', () => {
+  const pollAfter = (r: { body: Record<string, unknown> }) => r.body.poll_after;
+  const HOUR = 3_600_000;
+
+  it('is the idle interval until a message goes either way, then the active one for the window', () => {
+    const { store, clock } = setup();
+    expect(pollAfter(store.inbox(undefined, undefined))).toBe(30);
+    store.send({ session: 's', turn: 't', type: 'message', text: 'hi' });
+    expect(pollAfter(store.inbox(undefined, undefined))).toBe(5);
+    clock.advance(HOUR - 1);
+    expect(pollAfter(store.inbox(1, undefined))).toBe(5);
+    clock.advance(1);
+    expect(pollAfter(store.inbox(1, undefined))).toBe(30);
+    // The agent's own reply counts too: it may be working through a long job on its own.
+    expect(store.reply({ session: 's', turn: 't', type: 'progress', text: 'still on it' }).status).toBe(200);
+    expect(pollAfter(store.inbox(1, undefined))).toBe(5);
+  });
+
+  it('does not count polling itself, a ping or a refused write as use', () => {
+    const { store, clock } = setup();
+    for (let i = 0; i < 3; i++) {
+      store.inbox(undefined, undefined);
+      store.ping('mb');
+      clock.advance(1000);
+    }
+    expect(store.send({ session: 's', type: 'message', text: '' }).status).toBe(400);
+    expect(store.reply({ session: 'nobody', turn: 't', type: 'final', text: 'x' }).status).toBe(404);
+    expect(pollAfter(store.inbox(undefined, undefined))).toBe(30);
+  });
+
+  it('survives the object being evicted between polls', () => {
+    const { store, sql, clock } = setup();
+    store.send({ session: 's', type: 'message', text: 'hi' });
+    const reborn = new MailboxStore(sql, DEFAULT_LIMITS, clock.now);
+    expect(pollAfter(reborn.inbox(undefined, undefined))).toBe(5);
+  });
+
+  it('follows the configured intervals and window', () => {
+    const { store, clock } = setup({ pollActiveSecs: 2, pollIdleSecs: 120, activeWindowMs: 60_000 });
+    expect(pollAfter(store.inbox(undefined, undefined))).toBe(120);
+    store.send({ session: 's', type: 'message', text: 'hi' });
+    expect(pollAfter(store.inbox(undefined, undefined))).toBe(2);
+    clock.advance(60_000);
+    expect(pollAfter(store.inbox(undefined, undefined))).toBe(120);
+  });
+});
